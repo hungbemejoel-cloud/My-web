@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Analytics Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --brand-blue:#004aad;
+    --brand-gold:#fbbf24;
+    --pill-bg:#fff;
+    --page-bg:#f3f6fa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--page-bg);color:#222}
+  header{background:linear-gradient(90deg,var(--brand-blue),#0f63b8 50%,var(--brand-gold));color:#fff;padding:14px;text-align:center;font-weight:700;font-size:1.1rem}
+  .wrapper{max-width:1000px;margin:20px auto;padding:0 16px}
+  .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+  .card{background:#fff;border:1px solid rgba(0,74,173,.12);border-radius:12px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+  .card h4{margin:0 0 6px 0;color:var(--brand-blue);font-size:.95rem}
+  .num{font-weight:800;font-size:1.6rem}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;justify-content:center}
+  .btn{background:var(--brand-blue);color:#fff;border:none;padding:10px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95rem}
+  .btn.secondary{background:#fff;color:var(--brand-blue);border:1px solid rgba(0,74,173,.2)}
+  .btn.active{box-shadow:0 0 0 3px rgba(0,74,173,.15)}
+  #chart-wrap{background:#fff;border:1px solid rgba(0,74,173,.12);border-radius:12px;padding:16px;margin-top:10px}
+  .nav{display:flex;gap:8px;justify-content:center;margin:18px 0}
+  footer{text-align:center;margin-top:16px;color:#666}
+  @media (max-width:800px){ .stats{grid-template-columns:1fr 1fr} }
+  @media (max-width:520px){ .stats{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header>📈 Analytics Dashboard</header>
+
+<div class="wrapper">
+  <div class="controls">
+    <button class="btn secondary" onclick="window.location.href='index.html'">← Home</button>
+    <button class="btn secondary" onclick="window.location.href='domain-extractor.html'">Domain Extractor</button>
+  </div>
+
+  <div class="stats">
+    <div class="card">
+      <h4>Total Click Events</h4>
+      <div class="num" id="totalEvents">0</div>
+    </div>
+    <div class="card">
+      <h4>Unique Links Clicked</h4>
+      <div class="num" id="uniqueLinks">0</div>
+    </div>
+    <div class="card">
+      <h4>Clicks Today</h4>
+      <div class="num" id="todayClicks">0</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="dailyBtn" onclick="switchMode('daily')">Daily</button>
+    <button class="btn" id="weeklyBtn" onclick="switchMode('weekly')">Weekly</button>
+    <button class="btn" id="monthlyBtn" onclick="switchMode('monthly')">Monthly</button>
+    <button class="btn secondary" onclick="resetAnalytics()">Reset Analytics</button>
+  </div>
+
+  <div id="chart-wrap">
+    <canvas id="clickChart" height="380"></canvas>
+  </div>
+
+  <div class="nav">
+    <button class="btn secondary" onclick="window.location.href='index.html'">← Back to Home</button>
+    <button class="btn" onclick="window.location.href='index.html'">Open Links</button>
+  </div>
+
+  <footer>Built with 💙 + 💛 by YourBrand</footer>
+</div>
+
+<script>
+const STORAGE={ EVENTS:'clickEvents' };
+
+/* ======= Load events ======= */
+function getEvents(){ try{ return JSON.parse(localStorage.getItem(STORAGE.EVENTS)||'[]');}catch(e){return[];} }
+
+/* ======= Update top stats ======= */
+function updateTopCards(events){
+  const total=events.length;
+  const unique=new Set(events.map(e=>e.url)).size;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const todayCount=events.filter(e=>e.ts>=today.getTime()).length;
+  document.getElementById('totalEvents').textContent=total;
+  document.getElementById('uniqueLinks').textContent=unique;
+  document.getElementById('todayClicks').textContent=todayCount;
+}
+
+/* ======= Grouping ======= */
+function startOfDay(ts){ const d=new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
+function startOfWeek(ts){ const d=new Date(startOfDay(ts)); const day=d.getDay(); const diff=(day+6)%7; d.setDate(d.getDate()-diff); return d.getTime(); }
+function startOfMonth(ts){ const d=new Date(ts); d.setDate(1); d.setHours(0,0,0,0); return d.getTime(); }
+function fmtDate(ts){ return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+function fmtWeek(ts){ const d1=new Date(ts); const d2=new Date(ts+6*24*3600*1000); return `${d1.toLocaleDateString(undefined,{month:'short',day:'numeric'})} – ${d2.toLocaleDateString(undefined,{month:'short',day:'numeric'})}`; }
+function fmtMonth(ts){ return new Date(ts).toLocaleDateString(undefined,{month:'short',year:'numeric'}); }
+
+function buildWindows(mode,count){
+  const now=Date.now(),buckets=[];
+  if(mode==='daily'){ const today=startOfDay(now); for(let i=count-1;i>=0;i--) buckets.push({key:today-i*24*3600*1000,label:fmtDate(today-i*24*3600*1000),total:0}); }
+  else if(mode==='weekly'){ const thisWeek=startOfWeek(now); for(let i=count-1;i>=0;i--){ const k=thisWeek-i*7*24*3600*1000; buckets.push({key:k,label:fmtWeek(k),total:0}); } }
+  else{ const thisMonth=startOfMonth(now); const monthsBack=(date,i)=>{const d=new Date(date);d.setMonth(d.getMonth()-i);return startOfMonth(d.getTime());}; for(let i=count-1;i>=0;i--){ const k=monthsBack(thisMonth,i); buckets.push({key:k,label:fmtMonth(k),total:0}); } }
+  return buckets;
+}
+
+function aggregate(events,mode){
+  const windows=mode==='daily'?buildWindows('daily',7):mode==='weekly'?buildWindows('weekly',8):buildWindows('monthly',6);
+  events.forEach(ev=>{ const t=ev.ts; if(mode==='daily'){ const day=startOfDay(t); const idx=windows.findIndex(w=>w.key===day); if(idx>-1) windows[idx].total++; }
+    else if(mode==='weekly'){ const week=startOfWeek(t); const idx=windows.findIndex(w=>w.key===week); if(idx>-1) windows[idx].total++; }
+    else{ const month=startOfMonth(t); const idx=windows.findIndex(w=>w.key===month); if(idx>-1) windows[idx].total++; }
+  });
+  return { labels:windows.map(w=>w.label), data:windows.map(w=>w.total) };
+}
+
+/* ======= Chart ======= */
+let chart,currentMode='daily';
+function draw(mode){
+  const events=getEvents();
+  updateTopCards(events);
+  const series=aggregate(events,mode);
+  const ctx=document.getElementById('clickChart').getContext('2d');
+  if(chart) chart.destroy();
+  chart=new Chart(ctx,{type:'bar',data:{labels:series.labels,datasets:[{label:'Clicks',data:series.data}]},options:{responsive:true,animation:{duration:250},plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+  document.getElementById('dailyBtn').classList.toggle('active',mode==='daily');
+  document.getElementById('weeklyBtn').classList.toggle('active',mode==='weekly');
+  document.getElementById('monthlyBtn').classList.toggle('active',mode==='monthly');
+}
+function switchMode(mode){ currentMode=mode; draw(mode); }
+
+/* ======= Reset ======= */
+function resetAnalytics(){ if(!confirm('This will clear all recorded click analytics on this device. Continue?')) return; localStorage.removeItem(STORAGE.EVENTS); draw(currentMode); }
+
+/* init */
+draw('daily');
+</script>
+</body>
+</html>

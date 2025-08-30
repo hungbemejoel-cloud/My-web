@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Domain Extractor — Pill UI</title>
+  <style>
+    :root{
+      --brand-blue:#004aad;
+      --brand-gold:#fbbf24;
+      --pill-bg:#fff;
+      --page-bg:#f3f6fa;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--page-bg);color:#222}
+    header{background:linear-gradient(90deg,var(--brand-blue),#0f63b8 50%,var(--brand-gold));color:#fff;padding:14px;text-align:center;font-weight:700;font-size:1.1rem}
+    .wrapper{max-width:900px;margin:20px auto;padding:0 16px}
+    #built{text-align:center;color:#555;margin-bottom:12px}
+    textarea{width:100%;min-height:110px;padding:12px;border-radius:10px;border:1.5px solid rgba(0,74,173,0.15);background:#fff;font-size:14px}
+    .controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+    button,.file-label,.nav-btn{background:var(--brand-blue);color:#fff;border:none;padding:10px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95rem;transition:transform .12s}
+    button:hover,.nav-btn:hover{opacity:.95}
+    button:active,.nav-btn:active{transform:scale(.98)}
+    input[type=file]{display:none}
+
+    .pill-container{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+    .pill{background:var(--pill-bg);border-radius:50px;padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 6px rgba(0,0,0,0.08);width:100%}
+    .badge{background:#f2f6ff;color:var(--brand-blue);font-weight:700;padding:6px 10px;border-radius:20px;font-size:0.9rem;flex:0 0 auto}
+    .domain{font-weight:700;color:var(--brand-blue);word-break:break-word;flex:1 1 auto;min-width:0}
+    .pill-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex:0 0 auto}
+    .open-btn{background:var(--brand-blue);color:#fff;border-radius:20px;padding:6px 12px;text-decoration:none;font-size:0.85rem;font-weight:700}
+    .copy-btn{background:#fff;color:var(--brand-blue);border:1px solid rgba(0,74,173,.2);border-radius:20px;padding:6px 12px;font-size:0.85rem;font-weight:700;cursor:pointer}
+    .copied { background: #16a34a !important; color: #fff !important; border-color:#16a34a !important; }
+
+    footer{text-align:center;margin-top:20px;color:#666}
+
+    #topBtn{display:none;position:fixed;bottom:20px;right:20px;z-index:99;background:var(--brand-blue);color:#fff;border:none;padding:12px 14px;border-radius:50%;cursor:pointer;font-size:18px;box-shadow:0 4px 8px rgba(0,0,0,0.25)}
+    #topBtn:hover{opacity:.9}
+    @media (max-width:640px){ .pill{padding:8px 12px;gap:8px} button,.file-label,.nav-btn{font-size:.9rem;padding:9px 12px} }
+
+    #counter{margin-top:8px;font-weight:700;color:var(--brand-blue)}
+    .nav{display:flex;gap:8px;justify-content:center;margin:18px 0}
+    .secondary{background:#ffffff;color:var(--brand-blue);border:1px solid rgba(0,74,173,.2)}
+  </style>
+</head>
+<body>
+<header>🔍 Domain Extractor</header>
+
+<div class="wrapper">
+  <div id="built">Built with ❤️ by YourBrand</div>
+
+  <div style="text-align:center;margin-bottom:8px;">
+    <button class="nav-btn secondary" onclick="window.location.href='index.html'">← Back to Home</button>
+    <button class="nav-btn" onclick="window.location.href='analytics.html'">Analytics →</button>
+  </div>
+
+  <textarea id="domainInput" placeholder="Paste one URL per line (example.com or https://example.com)"></textarea>
+
+  <div class="controls">
+    <button onclick="extractDomains()">Extract Domains</button>
+    <button onclick="clearAll()">Clear All</button>
+    <label class="file-label" for="fileInput">Import File</label>
+    <input id="fileInput" type="file" accept=".txt" onchange="importFile(event)">
+    <button id="copyAllBtn" onclick="copyAllDomains()">Copy All</button>
+    <button onclick="window.location.href='index.html'">Home</button>
+    <button onclick="window.location.href='analytics.html'">Analytics</button>
+  </div>
+
+  <div id="counter"></div>
+  <div id="domainsContainer" class="pill-container" aria-live="polite"></div>
+
+  <div class="nav">
+    <button class="nav-btn secondary" onclick="window.location.href='index.html'">← Link Tracker</button>
+    <button class="nav-btn" onclick="window.location.href='analytics.html'">View Analytics →</button>
+  </div>
+
+  <footer>Built with 💙 + 💛 by YourBrand</footer>
+</div>
+
+<button onclick="topFunction()" id="topBtn" title="Go to top">↑</button>
+
+<script>
+const STORAGE={
+  EXTRACT_TEXT:'savedExtractorText',
+  EXTRACTED_DOMAINS:'extractedDomains',
+  FROM_EXTRACTOR:'savedLinks',
+  EVENTS:'clickEvents'
+};
+
+const domainInput=document.getElementById('domainInput');
+const domainsContainer=document.getElementById('domainsContainer');
+const counterDiv=document.getElementById('counter');
+const copyAllBtn=document.getElementById('copyAllBtn');
+const topBtn=document.getElementById('topBtn');
+
+let extractedDomains=[];
+
+/* restore saved textarea */
+const saved=localStorage.getItem(STORAGE.EXTRACT_TEXT);
+if(saved) domainInput.value=saved;
+domainInput.addEventListener('input',()=>{localStorage.setItem(STORAGE.EXTRACT_TEXT,domainInput.value);});
+
+function normalizeUrl(raw){if(!raw)return null;let s=raw.trim();if(!s)return null;if(!/^https?:\/\//i.test(s)) s='https://'+s.replace(/^\/+/,'');return s;}
+function orderedUnique(arr){const seen=new Set();const out=[];for(const item of arr){if(!seen.has(item)){seen.add(item);out.push(item);}}return out;}
+function recordClickEvent(url){try{const events=JSON.parse(localStorage.getItem(STORAGE.EVENTS)||'[]'); events.push({url,ts:Date.now()}); localStorage.setItem(STORAGE.EVENTS,JSON.stringify(events));}catch(e){}}
+
+function extractDomains(){
+  const lines=domainInput.value.split(/\r?\n/).map(normalizeUrl).filter(Boolean);
+  const urls=orderedUnique(lines);
+  const domains=urls.map(u=>{try{return new URL(u).hostname;}catch(e){return null;}}).filter(Boolean);
+  extractedDomains=orderedUnique(domains);
+  localStorage.setItem(STORAGE.EXTRACTED_DOMAINS,JSON.stringify(extractedDomains));
+  renderDomains();
+}
+
+function renderDomains(){
+  domainsContainer.innerHTML='';
+  if(!extractedDomains||extractedDomains.length===0){ counterDiv.textContent=''; return;}
+  extractedDomains.forEach((d,i)=>{
+    const pill=document.createElement('div'); pill.className='pill';
+    const badge=document.createElement('div'); badge.className='badge'; badge.textContent=i+1;
+    const domainDiv=document.createElement('div'); domainDiv.className='domain'; domainDiv.textContent=d;
+    const actions=document.createElement('div'); actions.className='pill-actions';
+
+    const copyBtn=document.createElement('button'); copyBtn.className='copy-btn'; copyBtn.textContent='Copy';
+    copyBtn.addEventListener('click',e=>{ e.stopPropagation(); navigator.clipboard.writeText(d).then(()=>{ copyBtn.textContent='Copied'; copyBtn.classList.add('copied'); setTimeout(()=>{copyBtn.textContent='Copy'; copyBtn.classList.remove('copied');},900);}).catch(()=>alert('Copy failed')); });
+
+    const openBtn=document.createElement('a'); openBtn.className='open-btn'; openBtn.href='https://'+d; openBtn.target='_blank'; openBtn.rel='noopener noreferrer'; openBtn.textContent='Open';
+    openBtn.addEventListener('click',()=>recordClickEvent('https://'+d));
+
+    actions.appendChild(copyBtn); actions.appendChild(openBtn);
+    pill.appendChild(badge); pill.appendChild(domainDiv); pill.appendChild(actions);
+    domainsContainer.appendChild(pill);
+  });
+  counterDiv.textContent=`Total domains: ${extractedDomains.length}`;
+}
+
+function copyAllDomains(){if(!extractedDomains||extractedDomains.length===0) return; navigator.clipboard.writeText(extractedDomains.join('\n')).then(()=>{ const prevText=copyAllBtn.textContent; copyAllBtn.textContent='Copied All'; copyAllBtn.classList.add('copied'); setTimeout(()=>{ copyAllBtn.textContent=prevText||'Copy All'; copyAllBtn.classList.remove('copied');},1000);}).catch(()=>alert('Copy failed'));}
+
+function importFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=(e)=>{const content=e.target.result; const existing=domainInput.value?domainInput.value.split(/\r?\n/):[]; const incoming=content.split(/\r?\n/); const combined=orderedUnique(existing.concat(incoming).map(normalizeUrl).filter(Boolean)); domainInput.value=combined.join('\n'); localStorage.setItem(STORAGE.EXTRACT_TEXT,domainInput.value); extractDomains(); event.target.value='';}; reader.readAsText(file);}
+
+function clearAll(){domainInput.value=''; domainsContainer.innerHTML=''; counterDiv.textContent=''; extractedDomains=[]; localStorage.removeItem(STORAGE.EXTRACT_TEXT); localStorage.removeItem(STORAGE.EXTRACTED_DOMAINS);}
+function topFunction(){window.scrollTo({top:0,behavior:'smooth'});}
+window.onscroll=function(){if(document.body.scrollTop>200||document.documentElement.scrollTop>200){topBtn.style.display='block';}else{topBtn.style.display='none';}}
+
+/* init */
+(function init(){
+  try{ const persisted=JSON.parse(localStorage.getItem(STORAGE.EXTRACTED_DOMAINS)||'null'); if(Array.isArray(persisted)&&persisted.length>0){extractedDomains=persisted; renderDomains(); return;}}catch(e){}
+  if(domainInput.value && domainInput.value.trim()){ extractDomains();}
+})();
+</script>
+</body>
+</html>

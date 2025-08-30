@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Link Tracker — Pill View</title>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <style>
+    :root{
+      --brand-blue: #004aad;
+      --brand-gold: #fbbf24;
+      --pill-bg: #fff;
+      --page-bg: #f3f6fa;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--page-bg);color:#222}
+    header{background:linear-gradient(90deg,var(--brand-blue),#0f63b8 50%,var(--brand-gold));color:#fff;padding:14px;text-align:center;font-weight:700;font-size:1.1rem}
+    .wrapper{max-width:900px;margin:20px auto;padding:0 16px}
+    #built{text-align:center;color:#555;margin-bottom:12px}
+    .about{max-width:900px;margin:12px auto 20px;background:#fff;border:1px solid rgba(0,74,173,.12);border-radius:12px;padding:14px}
+    .about h3{margin:0 0 6px 0;color:var(--brand-blue)}
+    textarea{width:100%;min-height:110px;padding:12px;border-radius:10px;border:1.5px solid rgba(0,74,173,0.15);background:#fff;font-size:14px}
+    .controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+    button,.file-label, .nav-btn{background:var(--brand-blue);color:#fff;border:none;padding:10px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.95rem;transition:transform .12s ease}
+    button:hover,.nav-btn:hover{opacity:.95}
+    button:active,.nav-btn:active{transform:scale(.98)}
+    input[type=file]{display:none}
+    #counter{margin-top:10px;text-align:center;font-weight:700;color:var(--brand-blue)}
+    #progress{width:100%;height:10px;background:#e6e9ee;border-radius:12px;overflow:hidden;margin-top:8px}
+    #progress-bar{height:100%;width:0%;background:var(--brand-gold);transition:width .35s ease}
+
+    /* pill layout */
+    .pill-container{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+    .pill{background:var(--pill-bg);border-radius:50px;padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 6px rgba(0,0,0,0.08);width:100%;opacity:0;transform:translateY(6px);animation:fadeIn .25s ease forwards}
+    @keyframes fadeIn{to{opacity:1;transform:translateY(0)}}
+    .pill .badge{background:#f2f6ff;color:var(--brand-blue);font-weight:700;padding:6px 10px;border-radius:20px;font-size:0.9rem;flex:0 0 auto}
+    .pill .domain{font-weight:700;color:var(--brand-blue);word-break:break-word;flex:1 1 auto;min-width:0}
+    .pill-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex:0 0 auto}
+    .open-btn{background:var(--brand-blue);color:#fff;border-radius:20px;padding:6px 12px;text-decoration:none;font-size:0.85rem;font-weight:700}
+    .copy-btn{background:#fff;color:var(--brand-blue);border:1px solid rgba(0,74,173,.2);border-radius:20px;padding:6px 12px;font-size:0.85rem;font-weight:700}
+    .clicked{color:#7b2fa6;font-weight:700;font-size:0.85rem;min-width:64px;text-align:right}
+
+    footer{text-align:center;margin-top:20px;color:#666}
+
+    .nav{display:flex;gap:8px;justify-content:center;margin:18px 0}
+    .secondary{background:#ffffff;color:var(--brand-blue);border:1px solid rgba(0,74,173,.2)}
+
+    #topBtn{display:none;position:fixed;bottom:20px;right:20px;z-index:99;background:var(--brand-blue);color:#fff;border:none;padding:12px 14px;border-radius:50%;cursor:pointer;font-size:18px;box-shadow:0 4px 8px rgba(0,0,0,0.25)}
+    #topBtn:hover{opacity:.9}
+    @media (max-width:640px){
+      .pill-container{gap:8px}
+      .pill{padding:8px 12px;gap:8px}
+      .pill .domain{font-size:14px}
+      button,.file-label,.nav-btn{font-size:.92rem;padding:9px 12px}
+    }
+  </style>
+</head>
+<body>
+<header>🚀 Link Tracker — Pill View</header>
+
+<div class="wrapper">
+  <div id="built">Built with ❤️ by YourBrand</div>
+
+  <div class="about">
+    <h3>About This Tool</h3>
+    <p>Paste your URLs below. Open each link from the list to auto-track clicks. Your progress and analytics are saved locally on your device.</p>
+  </div>
+
+  <textarea id="linkInput" placeholder="Paste one URL per line (example.com or https://example.com)"></textarea>
+
+  <div class="controls">
+    <button onclick="render()">Update Links</button>
+    <button onclick="clearAll()">Clear All</button>
+    <label class="file-label" for="fileInput">Import File</label>
+    <input id="fileInput" type="file" accept=".txt" onchange="importFile(event)">
+    <button onclick="toggleView(false)">Show All</button>
+    <button onclick="toggleView(true)">Show Unclicked</button>
+    <button onclick="window.location.href='domain-extractor.html'">Extract Domain</button>
+    <button onclick="window.location.href='analytics.html'">Analytics</button>
+  </div>
+
+  <div id="counter"></div>
+  <div id="progress"><div id="progress-bar"></div></div>
+
+  <div id="linksContainer" class="pill-container" aria-live="polite"></div>
+
+  <div class="nav">
+    <button class="nav-btn secondary" onclick="window.location.href='domain-extractor.html'">← Domain Extractor</button>
+    <button class="nav-btn" onclick="window.location.href='analytics.html'">View Analytics →</button>
+  </div>
+
+  <footer>Built with 💙 + 💛 by YourBrand</footer>
+</div>
+
+<button onclick="topFunction()" id="topBtn" title="Go to top">↑</button>
+
+<script>
+/* ======= Shared storage keys ======= */
+const STORAGE = {
+  CLICKED_SET: 'clickedLinks',
+  EVENTS: 'clickEvents',
+  SAVED_TEXT: 'savedTextArea',
+  FROM_EXTRACTOR: 'savedLinks'
+};
+
+const linkInput = document.getElementById('linkInput');
+const linksContainer = document.getElementById('linksContainer');
+const counterDiv = document.getElementById('counter');
+const progressBar = document.getElementById('progress-bar');
+const topBtn = document.getElementById('topBtn');
+
+let clickedLinks = new Set(JSON.parse(localStorage.getItem(STORAGE.CLICKED_SET) || '[]'));
+let showOnlyUnclicked = false;
+
+/* Restore textarea persistently */
+const savedText = localStorage.getItem(STORAGE.SAVED_TEXT);
+if (savedText) linkInput.value = savedText;
+
+/* Restore from extractor if present */
+const savedFromExtractor = localStorage.getItem(STORAGE.FROM_EXTRACTOR);
+if (savedFromExtractor) {
+  linkInput.value = savedFromExtractor;
+  localStorage.removeItem(STORAGE.FROM_EXTRACTOR);
+}
+
+/* ======= Utils ======= */
+function normalizeUrl(raw){ if(!raw)return null; let s=raw.trim(); if(!s)return null; if(!/^https?:\/\//i.test(s)) s='https://'+s.replace(/^\/+/,''); return s; }
+function orderedUnique(arr){const seen=new Set();const out=[];for(const item of arr){if(!seen.has(item)){seen.add(item);out.push(item);}}return out;}
+
+/* ======= Analytics: record click event ======= */
+function recordClickEvent(url){
+  try{
+    const now = Date.now();
+    const events = JSON.parse(localStorage.getItem(STORAGE.EVENTS)||'[]');
+    events.push({url,ts:now});
+    localStorage.setItem(STORAGE.EVENTS,JSON.stringify(events));
+  }catch(e){}
+}
+
+/* ======= Render pills ======= */
+function render(){
+  const lines=linkInput.value.split(/\r?\n/).map(normalizeUrl).filter(Boolean);
+  const rawLinks=orderedUnique(lines);
+  linksContainer.innerHTML='';
+  if(rawLinks.length===0){ linksContainer.style.display='none'; counterDiv.textContent=''; progressBar.style.width='0%'; return;} 
+  else{ linksContainer.style.display='flex'; }
+
+  rawLinks.forEach((url,index)=>{
+    if(showOnlyUnclicked && clickedLinks.has(url)) return;
+
+    const pill=document.createElement('div'); pill.className='pill';
+    const badge=document.createElement('div'); badge.className='badge'; badge.textContent=index+1;
+    const domain=document.createElement('div'); domain.className='domain';
+    try{domain.textContent=new URL(url).hostname;}catch(e){domain.textContent=url;}
+    const actions=document.createElement('div'); actions.className='pill-actions';
+    const openA=document.createElement('a'); openA.className='open-btn'; openA.href=url; openA.target='_blank'; openA.rel='noopener noreferrer'; openA.textContent='Open';
+    openA.addEventListener('click',()=>{markClicked(url); recordClickEvent(url);});
+    const copyBtn=document.createElement('button'); copyBtn.className='copy-btn'; copyBtn.textContent='Copy';
+    copyBtn.addEventListener('click',e=>{ e.stopPropagation(); navigator.clipboard.writeText(url).then(()=>{ copyBtn.textContent='Copied'; copyBtn.classList.add('copied'); setTimeout(()=>{copyBtn.textContent='Copy';copyBtn.classList.remove('copied');},900); }).catch(()=>alert('Copy failed'));});
+    const clickedIndicator=document.createElement('div'); clickedIndicator.className='clicked'; clickedIndicator.textContent=clickedLinks.has(url)?'✓ Clicked':'';
+
+    actions.append(openA,copyBtn,clickedIndicator);
+    pill.append(badge,domain,actions);
+    linksContainer.appendChild(pill);
+  });
+
+  updateCounterAndProgress(orderedUnique(linkInput.value.split(/\r?\n/).map(normalizeUrl).filter(Boolean)));
+}
+
+/* ======= Mark clicked & persistence ======= */
+function markClicked(url){ if(!clickedLinks.has(url)){ clickedLinks.add(url); localStorage.setItem(STORAGE.CLICKED_SET,JSON.stringify(Array.from(clickedLinks))); } render(); const rawLinks=orderedUnique(linkInput.value.split(/\r?\n/).map(normalizeUrl).filter(Boolean)); const allClicked=rawLinks.length>0 && rawLinks.every(l=>clickedLinks.has(l)); if(allClicked){ confetti({particleCount:90,spread:70,origin:{y:0.6}}); } }
+
+/* ======= Counter & progress ======= */
+function updateCounterAndProgress(rawLinks){ const total=rawLinks.length; const clickedCount=rawLinks.filter(u=>clickedLinks.has(u)).length; const unclicked=total-clickedCount; if(total===0){ counterDiv.textContent=''; progressBar.style.width='0%'; } else{ counterDiv.textContent=`Progress: ${clickedCount}/${total} clicked — ${unclicked} left`; const pct=Math.round((clickedCount/total)*100); progressBar.style.width=pct+'%'; } }
+
+/* ======= File import (append + dedupe) ======= */
+function importFile(event){ const file=event.target.files[0]; if(!file)return; const reader=new FileReader(); reader.onload=function(e){ const content=e.target.result; const existing=linkInput.value.split(/\r?\n/); const fromFile=content.split(/\r?\n/); const combined=orderedUnique(existing.concat(fromFile).map(normalizeUrl).filter(Boolean)); linkInput.value=combined.join('\n'); localStorage.setItem(STORAGE.SAVED_TEXT,linkInput.value); render(); event.target.value=''; }; reader.readAsText(file); }
+
+/* ======= Helpers ======= */
+function toggleView(unclickedOnly){ showOnlyUnclicked=unclickedOnly; render(); }
+function clearAll(){ linkInput.value=''; localStorage.removeItem(STORAGE.SAVED_TEXT); render(); }
+linkInput.addEventListener('input',()=>{ localStorage.setItem(STORAGE.SAVED_TEXT,linkInput.value); render(); });
+
+render();
+
+/* scroll-to-top */
+window.onscroll=function(){ if(document.body.scrollTop>200 || document.documentElement.scrollTop>200){ topBtn.style.display="block"; }else{ topBtn.style.display="none"; } };
+function topFunction(){ window.scrollTo({top:0,behavior:'smooth'}); }
+</script>
+</body>
+</html>
