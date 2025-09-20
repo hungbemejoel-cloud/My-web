@@ -16,12 +16,4 @@
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
-  X-XSS-Protection: 1; mode=block
   Referrer-Policy: no-referrer-when-downgrade
-  Content-Security-Policy: default-src 'self'
-
-/domain-extractor.html
-  Cache-Control: no-cache
-
-/analytics.html
-  Cache-Control: no-cache
