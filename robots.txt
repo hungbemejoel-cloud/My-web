@@ -1,0 +1,4 @@
+User-agent: *
+Disallow:
+
+Sitemap: https://jkaystrackler.netlify.app/sitemap.xml
