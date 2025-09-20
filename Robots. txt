@@ -1,0 +1,10 @@
+# Allow all search engines to crawl the site
+User-agent: *
+Allow: /
+
+# Disallow crawling of any hidden or sensitive directories (if any exist)
+# Disallow: /private/
+# Disallow: /admin/
+
+# Sitemap location
+Sitemap: https://jkaystrackler.netlify.app/sitemap.xml
